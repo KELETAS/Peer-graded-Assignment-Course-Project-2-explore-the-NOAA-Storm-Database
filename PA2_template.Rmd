@@ -10,11 +10,10 @@ output:
 GitHub: [GitHub Explore NOAA Project]
 (https://github.com/jesyfax/Peer-graded-Assignment-Course-Project-2-explore-the-NOAA-Storm-Database) 
 
-## 1 - Introduction
+# 1 - Introduction
 Storms and other severe weather events can cause both public health and economic problems for communities and municipalities. Many severe events can result in fatalities, injuries, and property damage, and preventing such outcomes to the extent possible is a key concern.
 
 This Data Science Project involves exploring the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database. This database tracks characteristics of major storms and weather events in the United States, including when and where they occur, as well as estimates of any fatalities, injuries, and property damage.
-
 
 # 2 - Synopsis
 This report address questions related to Weather Events and Storms in U.S. that are most damaging in terms of Fatalities, Injuries and damages to properties and crop.
@@ -29,14 +28,15 @@ The two questions to be answered are:
 
 ```{r, echo=TRUE}
 getwd()
-library(knitr)
-library(markdown)
-library(rmarkdown)
-library(plyr)
-library(stats)
+library("knitr")
+library(RColorBrewer)
+opts_chunk$set(echo = TRUE )
+opts_chunk$set(cache = TRUE )
+opts_chunk$set(out.width='1000px', dpi=200)
 ```
+# 3 - Data Processing
 
-##Loading NOAA data into R
+## Loading NOAA data into R
 
 ```{r, echo=TRUE,cache=TRUE}
 ## Copy LinkLoaction for "Storm Data" and Download CSV File
@@ -48,11 +48,10 @@ if(!file.exists("./repdata_data_StormData.csv.bz2")){
 
 ## Read data as data frame
 storm<-read.csv("./repdata_data_StormData.csv.bz2", header=T)
+## backing up the original data and the data has to modified
+stormunchanged<-storm
+summary(storm)
 ```
-
-
-##Analysing the Data
-
 Defining variables that will be used:
 
 - EVTYPE: Event Type (Tornados, Flood, ....)
@@ -69,153 +68,99 @@ Defining variables that will be used:
 
 - CROPDMGEXP: Units for Crop Damage (magnitudes - K,BM,B)
 
-```{r, echo=TRUE}
-varsNedeed <- c("EVTYPE", "FATALITIES", "INJURIES", "PROPDMG", "PROPDMGEXP", "CROPDMG", "CROPDMGEXP")
-storm <- storm[varsNedeed]
-dim(storm)
-names(storm)
-str(storm)
+e) Unknown symbols in PROPDMGEXP and CROPDMGEXP can be equated to 0.
+
+```{r}
+## Data Conversion: Factor data to character
+storm$PROPDMGEXP<-as.character(storm$PROPDMGEXP)
+storm$CROPDMGEXP<-as.character(storm$CROPDMGEXP)
+
+## Property and crop damage units and respective column numbers
+propcol<-grep("PROPDMGEXP",colnames(storm))
+cropcol<-grep("CROPDMGEXP",colnames(storm))
+
+storm[storm$PROPDMGEXP=="",propcol]<-"0"
+storm[storm$PROPDMGEXP=="-",propcol]<-"0"
+storm[storm$PROPDMGEXP=="?",propcol]<-"0"
+storm[storm$PROPDMGEXP=="+",propcol]<-"0"
+storm[storm$PROPDMGEXP=="1",propcol]<-"0"
+storm[storm$PROPDMGEXP=="2",propcol]<-"0"
+storm[storm$PROPDMGEXP=="3",propcol]<-"0"
+storm[storm$PROPDMGEXP=="4",propcol]<-"0"
+storm[storm$PROPDMGEXP=="5",propcol]<-"0"
+storm[storm$PROPDMGEXP=="6",propcol]<-"0"
+storm[storm$PROPDMGEXP=="7",propcol]<-"0"
+storm[storm$PROPDMGEXP=="8",propcol]<-"0"
+storm[storm$PROPDMGEXP=="h",propcol]<-"100"
+storm[storm$PROPDMGEXP=="H",propcol]<-"100"
+storm[storm$PROPDMGEXP=="K",propcol]<-"1000"
+storm[storm$PROPDMGEXP=="m",propcol]<-"1000000"
+storm[storm$PROPDMGEXP=="M",propcol]<-"1000000"
+storm[storm$PROPDMGEXP=="B",propcol]<-"1000000000"
+
+storm[storm$CROPDMGEXP=="",cropcol]<-"0"
+storm[storm$CROPDMGEXP=="?",cropcol]<-"0"
+storm[storm$CROPDMGEXP=="2",cropcol]<-"0"
+storm[storm$CROPDMGEXP=="k",cropcol]<-"1000"
+storm[storm$CROPDMGEXP=="K",cropcol]<-"1000"
+storm[storm$CROPDMGEXP=="m",cropcol]<-"1000000"
+storm[storm$CROPDMGEXP=="M",cropcol]<-"1000000"
+storm[storm$CROPDMGEXP=="B",cropcol]<-"1000000000"
+
+##Data Convertion: Property and crop damage units to numeric
+storm$PROPDMGEXP<-as.numeric(storm$PROPDMGEXP)
+storm$CROPDMGEXP<-as.numeric(storm$CROPDMGEXP)
+## multiplying the unit and cost to get the cost in same unit
+storm$PROPDMG<-storm$PROPDMG*storm$PROPDMGEXP
+storm$CROPDMG<-storm$CROPDMG*storm$CROPDMGEXP
+```
+ 
+###subsetting the data for our analysis
+```{r}
+storm.h <- subset(storm, select = c(EVTYPE,FATALITIES,INJURIES ))
+storm.e <- subset(storm, select = c(EVTYPE,PROPDMG,CROPDMG))
+
 ```
 
-###Calculating Total for Property Damage 
-
-* Refactor of variable PROPDNGEXP
-
-```{r, echo=TRUE}
-unique(storm$PROPDMGEXP)
-storm$PROPDMGEXP <- mapvalues(storm$PROPDMGEXP, from = c("K", "M","", "B", "m", "+", "0", "5", "6", "?", "4", "2", "3", "h", "7", "H", "-", "1", "8"), to = c(10^3, 10^6, 1, 10^9, 10^6, 0,1,10^5, 10^6, 0, 10^4, 10^2, 10^3, 10^2, 10^7, 10^2, 0, 10, 10^8))
-storm$PROPDMGEXP <- as.numeric(as.character(storm$PROPDMGEXP))
-storm$PROPDMGTOTAL <- (storm$PROPDMG * storm$PROPDMGEXP)/1000000000
+##Summarize Data
+```{r}
+##Summarizing the fatalities and injuries
+fatalities<- tapply(storm.h$FATALITIES, storm.h$EVTYPE, sum)
+fatalitiestop10  <- sort(fatalities,decreasing = TRUE)[1:10]
+injuries    <- tapply(storm.h$INJURIES, storm.h$EVTYPE, sum)
+injuriestop10  <- sort(injuries,decreasing = T)[1:10]
+##summarizing the property and crop damage
+propdmg   <- tapply(storm.e$PROPDMG,  storm.e$EVTYPE, sum)
+propdmgtop10 <- sort(propdmg,decreasing = T)[1:10]
+cropdmg   <- tapply(storm.e$CROPDMG,  storm.e$EVTYPE, sum)
+cropdmgtop10 <-sort(cropdmg,decreasing = T)[1:10]
 ```
 
-* Refactor of variable CROPDMGEXP variable
+##Plot Data
+```{r}
+##plotting the Ten most severe types of weather events in terms of human health impacts
+par(mfrow = c(1,2 ),mar=c(2,5,2,2), oma = c(3,1,3,1))
+  barplot(fatalitiestop10, names.arg=names(fatalitiestop10), cex.names=0.5, las=3, col = heat.colors(10), 
+        space=0.1,  offset = 0.1, ylab = "number of fatalities")
+barplot(injuriestop10, names.arg=names(injuriestop10), cex.names=0.5, las=3, col = heat.colors(10), 
+        space=0.1,  offset = 0.1, ylab = "number of injuries" )
+title(main = 
+      "Ten most severe types of weather events \n in terms of human health impacts",
+      outer = TRUE)
 
-```{r, echo=TRUE}
-unique(storm$CROPDMGEXP)
-storm$CROPDMGEXP <- mapvalues(storm$CROPDMGEXP, from = c("","M", "K", "m", "B", "?", "0", "k","2"), to = c(1,10^6, 10^3, 10^6, 10^9, 0, 1, 10^3, 10^2))
-storm$CROPDMGEXP <- as.numeric(as.character(storm$CROPDMGEXP))
-storm$CROPDMGTOTAL <- (storm$CROPDMG * storm$CROPDMGEXP)/1000000000
 ```
 
-# Processing the Data:
+```{r}
+##ploting the Ten most severe types of weather events \n in terms of economic loss
+par(mfrow = c(1,2 ), mar = c(7,4,2,0), oma = c(0,0,2,0))
+barplot(propdmgtop10, names.arg=names(propdmgtop10), cex.names=0.5, las=3, col = terrain.colors(10), 
+        space=0.1,  offset = 0.1, ylab = "property damage in US-dollar")
+barplot(cropdmgtop10, names.arg=names(cropdmgtop10), cex.names=0.5, las=3, col = grey.colors(10), 
+        space=0.1,  offset = 0.1, ylab = "crop damage in US-dollar" )
+title(main = "Ten most severe types of weather events \n in terms of economic loss",
+      outer = TRUE)
 
-Lets answer the question about Which Types of Events are most Harmful for population HEALTH? The variables involved are FATALITIES and INJURIES.
-
-
-##Events are most harmful to population Health?
-
-Reference link: [Storm Data Documentation](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf)
-
-### *Total Number of Fatalities per Event
-
-```{r, echo= TRUE}
-sumFatalities <- aggregate(FATALITIES ~ EVTYPE, data = storm,  FUN="sum")
-dim(sumFatalities) 
 ```
-
-* Ordering Number of Fatalities and defining the top 10 Weather events
-
-```{r, echo=TRUE}
-fatalities10events <- sumFatalities[order(-sumFatalities$FATALITIES), ][1:10, ]
-dim(fatalities10events)
-fatalities10events
-```
-
-* BarPlot of the 10 Fatalities Events most harmful to population Health.
-
-```{r, echo = TRUE}
-par(mfrow = c(1,1), mar = c(12, 4, 3, 2), mgp = c(3, 1, 0), cex = 0.8)
-barplot(fatalities10events$FATALITIES, names.arg = fatalities10events$EVTYPE, las = 3, main = "10 Fatalities Highest Events", ylab = "Number of Fatalities")
-dev.copy(png, "fatalities-events.png", width = 480, height = 480)
-dev.off()
-```
-
-
-### *Total Number of Injuries per Event
-
-Using the same reasoning of Fatalities, let's evaluate the Number of Injuries per type of Event (EVTYPE)
-
-```{r, echo= TRUE}
-sumInjuries <- aggregate(INJURIES ~ EVTYPE, data = storm,  FUN="sum")
-dim(sumInjuries)  
-```
-
-* Ordering Number of INJURIES and defining the top 10 Weather events in this category
-
-```{r, echo=TRUE}
-injuries10events <- sumInjuries[order(-sumInjuries$INJURIES), ][1:10, ]
-dim(injuries10events)
-injuries10events
-```
-
-* BarPlot of the 10 INJURIES Events most harmful to population Health.
-
-```{r, echo = TRUE}
-par(mfrow = c(1,1), mar = c(12, 6, 3, 2), mgp = c(4, 1, 0), cex = 0.8)
-barplot(injuries10events$INJURIES, names.arg = injuries10events$EVTYPE, las = 3, main = "10 Injuries Highest Events", ylab = "Number of Injuries")
-dev.copy(png, "injuries-events.png", width = 480, height = 480)
-dev.off()
-```
-
-
-## Which type of Events have the greatest Economic consequences? 
-
-The item 2.7 (page 12 and the APPENDIX B) of National Weather Service Storm Data documentation describes about Damage. Two variables, PROPDMG (for Property Damage) and CROPDMG (for Crop Damage) are used to represent these losts. If you want, read more about theses damages, please connect with National Weather Service using the link [Storm Data Documentation](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf)
-
-
-### *Property Damage
-
-* Calculating Property Damage for type of Event
-
-```{r, echo= TRUE}
-sumPropertyDamage <- aggregate(PROPDMGTOTAL ~ EVTYPE, data = storm,  FUN="sum")
-dim(sumPropertyDamage) 
-```
-
-* We have 985 observations, which is a great number of Events to present in a Plot. 
-* Lets stay with the 10 most Property Damage Events
-
-```{r, echo=TRUE}
-propdmg10Total <- sumPropertyDamage[order(-sumPropertyDamage$PROPDMGTOTAL), ][1:10, ]
-propdmg10Total
-```
-
-* BarPlot of the 10 Proprietary Damage Events most harmful to population economic.
-
-```{r, echo = TRUE}
-par(mfrow = c(1,1), mar = c(12, 6, 3, 2), mgp = c(3, 1, 0), cex = 0.8)
-barplot(propdmg10Total$PROPDMGTOTAL, names.arg = propdmg10Total$EVTYPE, las = 3, main = "10 Property Damages Highest Events", ylab = "Damage Property Values (in Billions)")
-dev.copy(png, "propdmg-total.png", width = 480, height = 480)
-dev.off()
-```
-
-###* Crop Damage
-
-* Calculating Crop Damage for type of Event
-
-```{r, echo= TRUE}
-sumCropDamage <- aggregate(CROPDMGTOTAL ~ EVTYPE, data = storm,  FUN="sum")
-dim(sumCropDamage)
-```
-
-* We have 985 observations, which is a great number of Events to present in a Plot. 
-* Lets stay with the 10 most Crop Damage Events
-
-```{r, echo=TRUE}
-cropdmg10Total <- sumCropDamage[order(-sumCropDamage$CROPDMGTOTAL), ][1:10, ]
-cropdmg10Total
-```
-
-* BarPlot of the 10 Crop Damage Events most harmful to population economic.
-
-```{r, echo = TRUE}
-par(mfrow = c(1,1), mar = c(10, 6, 3, 2), mgp = c(3, 1, 0), cex = 0.6)
-barplot(cropdmg10Total$CROPDMGTOTAL, names.arg = cropdmg10Total$EVTYPE, las = 2, main = "10 Crop Damages Highest Events", ylab = "Damage Crop Values (in Billions) ")
-dev.copy(png, "cropdmg-total.png", width = 480, height = 480)
-dev.off()
-```
-
-
 # Results and Conclusions
 
 ### Answering Question 1
@@ -226,9 +171,12 @@ Specifically in FATALITIES, after Tornados, EXCESSIVE HEAT, FLASH FLOOD and HEAT
 Specifically in INJURIES, after tornados we have TSTM WIND, FLOOD and EXCESSIVE HEAT. 
 
 ### Answering Question 2
-Floods are the Weather Event that cause most Property Damage, followed by Hurrucanes.
+The impact on property and crop damage is different: 
 
-Drought are the Weather Event that causes most Crop damages, follwed by Flood.
+The largest damage on properties are caused by flood.
+
+But drought has the highest impact on crop.
 
 ### Conclusions
-Based on evidences demonstrated previously, tornados, floods and droughts have priorities to minize the impact in human and economic costs of Weather Events. Government and society have to be alert and prepared for each type of events. For safety, it's important to population to know what to do during these events.
+Based on evidences demonstrated previously, tornados, floods and droughts have priorities to minimize the impact in human and economic costs of Weather Events. Government and people have to be prepared for each type of events. For safety, it's important to population to know what to do during such events.
+
