@@ -1,9 +1,9 @@
 # Reproducible Research: Peer Assessment 2
-Jose Antonio R Neto (joseantonio@me.com)  
+Jesin Fahad  
 # Health/Economic Consequences in U.S. caused by Storms ans Weather Events
 
-GitHub: [GitHub NOAA Project]
-(https://github.com/joseantonio11/RepData_PeerAssessment2) 
+GitHub: [GitHub Explore NOAA Project]
+(https://github.com/jesyfax/Peer-graded-Assignment-Course-Project-2-explore-the-NOAA-Storm-Database) 
 
 ## 1 - Introduction
 Storms and other severe weather events can cause both public health and economic problems for communities and municipalities. Many severe events can result in fatalities, injuries, and property damage, and preventing such outcomes to the extent possible is a key concern.
@@ -19,8 +19,6 @@ The two questions to be answered are:
 1.Which types of events are most harmful with respect to population health?
 
 2.Which types of events have the greatest economic consequences?
-
-# 3 - Loading the Data
 
 ## Loading required libraries
 
